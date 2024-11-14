@@ -67,6 +67,14 @@ func main() {
 	e.POST("/api/register", userController.Register)
 	e.POST("/api/login", userController.Login)
 
+	documentController := controllers.DocumentController{}
+
+	// Маршруты для документов
+	e.POST("/api/documents", documentController.CreateDocument)
+	e.GET("/api/documents", documentController.GetDocuments)
+	e.PUT("/api/documents/:id", documentController.UpdateDocument)
+	e.DELETE("/api/documents/:id", documentController.DeleteDocument)
+
 	// Swagger documentation route
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 

@@ -2,13 +2,12 @@ package models
 
 import "time"
 
-// Document represents a document belonging to a user
 type Document struct {
-	ID        uint      `gorm:"primaryKey"`
-	UserID    uint      `gorm:"foreignKey:UserID"`
-	FolderID  uint      `gorm:"foreignKey:FolderID"`
-	Title     string    `gorm:"not null"`
-	Content   string    `gorm:"not null"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	UserID    uint      `json:"userID"`
+	FolderID  uint      `json:"folderID"`
+	Title     string    `json:"title" validate:"required"`
+	Content   string    `json:"content" validate:"required"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
