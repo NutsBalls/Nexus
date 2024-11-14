@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: yourusername        # Замените на ваш PostgreSQL пользователь
+      POSTGRES_PASSWORD: yourpassword    # Замените на ваш PostgreSQL пароль
+      POSTGRES_DB: craftdb               # Замените на ваше название БД
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data:/var/lib/postgresql/data  # Для хранения данных PostgreSQL
+    networks:
+      - backend
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: craft-backend
+    ports:
+      - "8080:8080"                      # Порт для вашего Go API
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
