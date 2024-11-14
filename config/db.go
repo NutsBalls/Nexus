@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -12,15 +11,26 @@ import (
 
 var DB *gorm.DB
 
+// InitDB инициализирует подключение к базе данных с использованием DATABASE_URL
 func InitDB() {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		os.Getenv("DB_HOST"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_NAME"), os.Getenv("DB_PORT"))
+	// Получаем строку подключения из переменной окружения
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is not set in the environment")
+	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Подключаемся к базе данных с использованием GORM и строки подключения
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
-	db.AutoMigrate(&models.User{}, &models.Document{})
+	// Автоматическая миграция моделей в базе данных
+	err = db.AutoMigrate(&models.User{}, &models.Document{}) // Можно добавить другие модели, если нужно
+	if err != nil {
+		log.Fatalf("failed to migrate models: %v", err)
+	}
+
+	// Присваиваем глобальную переменную DB для использования в других частях приложения
 	DB = db
 }

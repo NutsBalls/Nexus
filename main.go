@@ -6,6 +6,7 @@ import (
 	_ "github.com/NutsBalls/Nexus/docs"
 	"github.com/NutsBalls/Nexus/models"
 	"github.com/NutsBalls/Nexus/services"
+	"github.com/go-playground/validator/v10"
 	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -34,6 +35,8 @@ func main() {
 	}
 	defer db.Close()
 
+	config.InitDB()
+
 	db.AutoMigrate(&models.User{}, &models.Folder{}, &models.Document{}, &models.Tag{}, &models.DocumentTag{})
 
 	// Create Echo instance
@@ -52,6 +55,7 @@ func main() {
 		return c.JSON(200, "User registered")
 	})
 
+	e.Validator = &services.CustomValidator{Validator: validator.New()}
 	// Enable CORS
 	e.Use(middleware.CORS())
 
