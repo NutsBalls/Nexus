@@ -17,14 +17,19 @@ const docTemplate = `{
     "paths": {
         "/api/documents": {
             "get": {
-                "description": "Возвращает все документы из базы данных",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Возвращает список всех документов",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "documents"
                 ],
-                "summary": "Получает список документов",
+                "summary": "Получить список всех документов",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -47,7 +52,12 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Добавляет новый документ в базу данных",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Создает новый документ с переданными данными",
                 "consumes": [
                     "application/json"
                 ],
@@ -57,10 +67,10 @@ const docTemplate = `{
                 "tags": [
                     "documents"
                 ],
-                "summary": "Создает новый документ",
+                "summary": "Создать новый документ",
                 "parameters": [
                     {
-                        "description": "Document data",
+                        "description": "Данные документа",
                         "name": "document",
                         "in": "body",
                         "required": true,
@@ -70,8 +80,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/models.Document"
                         }
@@ -97,9 +107,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/documents/search": {
+            "get": {
+                "description": "Поиск документов по запросу с учетом прав доступа",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Поиск документов",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Поисковый запрос",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Document"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/documents/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Возвращает документ по указанному идентификатору",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Получить документ по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID документа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Document"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "put": {
-                "description": "Изменяет данные указанного документа по ID",
+                "description": "Обновляет существующий документ",
                 "consumes": [
                     "application/json"
                 ],
@@ -109,17 +210,17 @@ const docTemplate = `{
                 "tags": [
                     "documents"
                 ],
-                "summary": "Обновляет документ",
+                "summary": "Обновить документ",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Document ID",
+                        "type": "string",
+                        "description": "ID документа",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Updated document data",
+                        "description": "Обновленные данные документа",
                         "name": "document",
                         "in": "body",
                         "required": true,
@@ -152,22 +253,63 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             },
             "delete": {
-                "description": "Удаляет документ по ID",
+                "description": "Удаляет документ по указанному идентификатору",
+                "tags": [
+                    "documents"
+                ],
+                "summary": "Удалить документ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID документа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/documents/{id}/attachments": {
+            "get": {
+                "description": "Возвращает список вложений для указанного документа",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "documents"
+                    "document attachments"
                 ],
-                "summary": "Удаляет документ",
+                "summary": "Получить вложения документа",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Document ID",
+                        "type": "string",
+                        "description": "ID документа",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -175,7 +317,249 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Document deleted successfully",
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Attachment"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Загружает вложение для указанного документа",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document attachments"
+                ],
+                "summary": "Загрузить вложение",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID документа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Файл вложения",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Attachment"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/documents/{id}/share": {
+            "post": {
+                "description": "Предоставляет доступ к документу другому пользователю по email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document sharing"
+                ],
+                "summary": "Предоставить доступ к документу",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID документа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные для общего доступа (email пользователя)",
+                        "name": "share",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ShareRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/documents/{id}/versions": {
+            "get": {
+                "description": "Возвращает список версий для указанного документа",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document versions"
+                ],
+                "summary": "Получить версии документа",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID документа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Version"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает новую версию для указанного документа",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document versions"
+                ],
+                "summary": "Создать новую версию документа",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID документа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные версии",
+                        "name": "version",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Version"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Version"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -197,7 +581,7 @@ const docTemplate = `{
         },
         "/api/login": {
             "post": {
-                "description": "Логин пользователя и получение JWT токена для аутентификации",
+                "description": "Аутентификация пользователя",
                 "consumes": [
                     "application/json"
                 ],
@@ -205,28 +589,25 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
-                "summary": "Аутентифицирует пользователя и возвращает JWT",
+                "summary": "Вход пользователя",
                 "parameters": [
                     {
-                        "description": "User credentials",
+                        "description": "Учетные данные",
                         "name": "credentials",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.LoginRequest"
+                            "$ref": "#/definitions/controllers.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "token",
+                        "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/controllers.AuthResponse"
                         }
                     },
                     "400": {
@@ -252,7 +633,7 @@ const docTemplate = `{
         },
         "/api/register": {
             "post": {
-                "description": "Регистрирует нового пользователя в системе",
+                "description": "Создание нового пользователя",
                 "consumes": [
                     "application/json"
                 ],
@@ -260,25 +641,25 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
-                "summary": "Создает нового пользователя",
+                "summary": "Регистрация пользователя",
                 "parameters": [
                     {
-                        "description": "User data",
+                        "description": "Данные пользователя",
                         "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.RegisterRequest"
+                            "$ref": "#/definitions/controllers.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.User"
+                            "$ref": "#/definitions/controllers.AuthResponse"
                         }
                     },
                     "400": {
@@ -304,48 +685,44 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "models.Document": {
+        "controllers.AuthResponse": {
             "type": "object",
             "properties": {
-                "content": {
+                "token": {
                     "type": "string"
                 },
-                "createdAt": {
-                    "type": "string"
-                },
-                "folderID": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "userID": {
-                    "type": "integer"
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "email": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "integer"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
-        "models.LoginRequest": {
+        "controllers.LoginRequest": {
             "type": "object",
             "required": [
-                "password",
-                "username"
+                "email",
+                "password"
             ],
             "properties": {
-                "password": {
+                "email": {
                     "type": "string"
                 },
-                "username": {
+                "password": {
                     "type": "string"
                 }
             }
         },
-        "models.RegisterRequest": {
+        "controllers.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -365,32 +742,235 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.ShareRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Attachment": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "document_id": {
+                    "type": "integer"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Document": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "Содержимое документа"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "folder_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_public": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "shared_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.User"
+                    }
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Tag"
+                    }
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Мой документ"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Version"
+                    }
+                }
+            }
+        },
+        "models.Folder": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Folder"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "documents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Document"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Личные документы"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "models.Tag": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "documents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Document"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Important"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
         "models.User": {
             "type": "object",
             "properties": {
                 "created_at": {
-                    "type": "string",
-                    "example": "2023-01-01T00:00:00Z"
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "documents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Document"
+                    }
                 },
                 "email": {
                     "type": "string",
-                    "example": "test@example.com"
+                    "example": "john@example.com"
+                },
+                "folders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Folder"
+                    }
                 },
                 "id": {
-                    "type": "integer",
-                    "example": 1
+                    "type": "integer"
                 },
-                "is_admin": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "password_hash": {
-                    "type": "string",
-                    "example": "$2a$10$..."
+                "updated_at": {
+                    "type": "string"
                 },
                 "username": {
                     "type": "string",
-                    "example": "testuser"
+                    "example": "johndoe"
+                }
+            }
+        },
+        "models.Version": {
+            "type": "object",
+            "properties": {
+                "change_log": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "document_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         }

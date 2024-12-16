@@ -1,33 +1,30 @@
 basePath: /
 definitions:
-  models.Document:
+  controllers.AuthResponse:
     properties:
-      content:
+      token:
         type: string
-      createdAt:
-        type: string
-      folderID:
-        type: integer
-      id:
-        type: integer
-      title:
-        type: string
-      updatedAt:
-        type: string
-      userID:
-        type: integer
+      user:
+        properties:
+          email:
+            type: string
+          id:
+            type: integer
+          username:
+            type: string
+        type: object
     type: object
-  models.LoginRequest:
+  controllers.LoginRequest:
     properties:
+      email:
+        type: string
       password:
         type: string
-      username:
-        type: string
     required:
+    - email
     - password
-    - username
     type: object
-  models.RegisterRequest:
+  controllers.RegisterRequest:
     properties:
       email:
         type: string
@@ -41,25 +38,160 @@ definitions:
     - password
     - username
     type: object
+  controllers.ShareRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  models.Attachment:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      document_id:
+        type: integer
+      filename:
+        type: string
+      id:
+        type: integer
+      path:
+        type: string
+      size:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.Document:
+    properties:
+      content:
+        example: Содержимое документа
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      folder_id:
+        example: 2
+        type: integer
+      id:
+        type: integer
+      is_public:
+        example: false
+        type: boolean
+      shared_users:
+        items:
+          $ref: '#/definitions/models.User'
+        type: array
+      tags:
+        items:
+          $ref: '#/definitions/models.Tag'
+        type: array
+      title:
+        example: Мой документ
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        example: 1
+        type: integer
+      versions:
+        items:
+          $ref: '#/definitions/models.Version'
+        type: array
+    type: object
+  models.Folder:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/models.Folder'
+        type: array
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      documents:
+        items:
+          $ref: '#/definitions/models.Document'
+        type: array
+      id:
+        type: integer
+      name:
+        example: Личные документы
+        type: string
+      parent_id:
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        example: 1
+        type: integer
+    type: object
+  models.Tag:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      documents:
+        items:
+          $ref: '#/definitions/models.Document'
+        type: array
+      id:
+        type: integer
+      name:
+        example: Important
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        example: 1
+        type: integer
+    type: object
   models.User:
     properties:
       created_at:
-        example: "2023-01-01T00:00:00Z"
         type: string
+      deleted_at:
+        type: string
+      documents:
+        items:
+          $ref: '#/definitions/models.Document'
+        type: array
       email:
-        example: test@example.com
+        example: john@example.com
         type: string
+      folders:
+        items:
+          $ref: '#/definitions/models.Folder'
+        type: array
       id:
-        example: 1
         type: integer
-      is_admin:
-        example: false
-        type: boolean
-      password_hash:
-        example: $2a$10$...
+      updated_at:
         type: string
       username:
-        example: testuser
+        example: johndoe
+        type: string
+    type: object
+  models.Version:
+    properties:
+      change_log:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      document_id:
+        type: integer
+      id:
+        type: integer
+      title:
+        type: string
+      updated_at:
         type: string
     type: object
 host: localhost:8080
@@ -71,7 +203,7 @@ info:
 paths:
   /api/documents:
     get:
-      description: Возвращает все документы из базы данных
+      description: Возвращает список всех документов
       produces:
       - application/json
       responses:
@@ -87,15 +219,17 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Получает список документов
+      security:
+      - ApiKeyAuth: []
+      summary: Получить список всех документов
       tags:
       - documents
     post:
       consumes:
       - application/json
-      description: Добавляет новый документ в базу данных
+      description: Создает новый документ с переданными данными
       parameters:
-      - description: Document data
+      - description: Данные документа
         in: body
         name: document
         required: true
@@ -104,8 +238,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             $ref: '#/definitions/models.Document'
         "400":
@@ -120,47 +254,69 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Создает новый документ
+      security:
+      - ApiKeyAuth: []
+      summary: Создать новый документ
       tags:
       - documents
   /api/documents/{id}:
     delete:
-      description: Удаляет документ по ID
+      description: Удаляет документ по указанному идентификатору
       parameters:
-      - description: Document ID
+      - description: ID документа
         in: path
         name: id
         required: true
-        type: integer
-      produces:
-      - application/json
+        type: string
       responses:
-        "200":
-          description: Document deleted successfully
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+        "204":
+          description: No Content
         "500":
           description: Internal Server Error
           schema:
             additionalProperties:
               type: string
             type: object
-      summary: Удаляет документ
+      summary: Удалить документ
+      tags:
+      - documents
+    get:
+      description: Возвращает документ по указанному идентификатору
+      parameters:
+      - description: ID документа
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Document'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Получить документ по ID
       tags:
       - documents
     put:
       consumes:
       - application/json
-      description: Изменяет данные указанного документа по ID
+      description: Обновляет существующий документ
       parameters:
-      - description: Document ID
+      - description: ID документа
         in: path
         name: id
         required: true
-        type: integer
-      - description: Updated document data
+        type: string
+      - description: Обновленные данные документа
         in: body
         name: document
         required: true
@@ -185,64 +341,33 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Обновляет документ
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Обновить документ
       tags:
       - documents
-  /api/login:
-    post:
-      consumes:
-      - application/json
-      description: Логин пользователя и получение JWT токена для аутентификации
+  /api/documents/{id}/attachments:
+    get:
+      description: Возвращает список вложений для указанного документа
       parameters:
-      - description: User credentials
-        in: body
-        name: credentials
+      - description: ID документа
+        in: path
+        name: id
         required: true
-        schema:
-          $ref: '#/definitions/models.LoginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: token
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Аутентифицирует пользователя и возвращает JWT
-      tags:
-      - users
-  /api/register:
-    post:
-      consumes:
-      - application/json
-      description: Регистрирует нового пользователя в системе
-      parameters:
-      - description: User data
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/models.RegisterRequest'
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.User'
+            items:
+              $ref: '#/definitions/models.Attachment'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -255,7 +380,263 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Создает нового пользователя
+      summary: Получить вложения документа
       tags:
-      - users
+      - document attachments
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает вложение для указанного документа
+      parameters:
+      - description: ID документа
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Файл вложения
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Attachment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Загрузить вложение
+      tags:
+      - document attachments
+  /api/documents/{id}/share:
+    post:
+      consumes:
+      - application/json
+      description: Предоставляет доступ к документу другому пользователю по email
+      parameters:
+      - description: ID документа
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные для общего доступа (email пользователя)
+        in: body
+        name: share
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ShareRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Предоставить доступ к документу
+      tags:
+      - document sharing
+  /api/documents/{id}/versions:
+    get:
+      description: Возвращает список версий для указанного документа
+      parameters:
+      - description: ID документа
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Version'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить версии документа
+      tags:
+      - document versions
+    post:
+      consumes:
+      - application/json
+      description: Создает новую версию для указанного документа
+      parameters:
+      - description: ID документа
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные версии
+        in: body
+        name: version
+        required: true
+        schema:
+          $ref: '#/definitions/models.Version'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Version'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Создать новую версию документа
+      tags:
+      - document versions
+  /api/documents/search:
+    get:
+      description: Поиск документов по запросу с учетом прав доступа
+      parameters:
+      - description: Поисковый запрос
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Document'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Поиск документов
+      tags:
+      - documents
+  /api/login:
+    post:
+      consumes:
+      - application/json
+      description: Аутентификация пользователя
+      parameters:
+      - description: Учетные данные
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Вход пользователя
+      tags:
+      - auth
+  /api/register:
+    post:
+      consumes:
+      - application/json
+      description: Создание нового пользователя
+      parameters:
+      - description: Данные пользователя
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/controllers.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Регистрация пользователя
+      tags:
+      - auth
 swagger: "2.0"

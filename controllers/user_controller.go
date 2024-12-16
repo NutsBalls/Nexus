@@ -1,63 +1,166 @@
 package controllers
 
 import (
-	"github.com/NutsBalls/Nexus/models"
-	"github.com/NutsBalls/Nexus/services"
-	"github.com/labstack/echo/v4"
 	"net/http"
+
+	"github.com/NutsBalls/Nexus/models"
+
+	middleware "github.com/NutsBalls/Nexus/middlewares"
+
+	"github.com/golang-jwt/jwt"
+	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
-// UserController handles user-related API requests
 type UserController struct {
-	UserService services.UserService
+	DB        *gorm.DB
+	JWTSecret string
+}
+
+func NewUserController(db *gorm.DB, jwtSecret string) *UserController {
+	return &UserController{
+		DB:        db,
+		JWTSecret: jwtSecret,
+	}
+}
+
+type RegisterRequest struct {
+	Username string `json:"username" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=6"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+type AuthResponse struct {
+	Token string `json:"token"`
+	User  struct {
+		ID       uint   `json:"id"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	} `json:"user"`
 }
 
 // Register godoc
-// @Summary Создает нового пользователя
-// @Description Регистрирует нового пользователя в системе
-// @Tags users
+// @Summary Регистрация пользователя
+// @Description Создание нового пользователя
+// @Tags auth
 // @Accept json
 // @Produce json
-// @Param user body models.RegisterRequest true "User data"
-// @Success 200 {object} models.User
-// @Failure 400 {object} map[string]string "Bad Request"
-// @Failure 500 {object} map[string]string "Internal Server Error"
+// @Param user body RegisterRequest true "Данные пользователя"
+// @Success 201 {object} AuthResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /api/register [post]
 func (uc *UserController) Register(c echo.Context) error {
-	var req models.RegisterRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-	}
-	if err := c.Validate(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	req := new(RegisterRequest)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
 
-	user, err := uc.UserService.CreateUser(req.Username, req.Email, req.Password)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	// Проверяем, существует ли пользователь
+	var existingUser models.User
+	if err := uc.DB.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "User already exists"})
 	}
-	return c.JSON(http.StatusOK, user)
+
+	// Хешируем пароль
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to hash password"})
+	}
+
+	// Создаем нового пользователя
+	user := models.User{
+		Username: req.Username,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+	}
+
+	if err := uc.DB.Create(&user).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create user"})
+	}
+
+	// Генерируем JWT токен
+	token, err := middleware.GenerateToken(user.ID, user.Username, uc.JWTSecret)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
+	}
+
+	return c.JSON(http.StatusCreated, AuthResponse{
+		Token: token,
+		User: struct {
+			ID       uint   `json:"id"`
+			Username string `json:"username"`
+			Email    string `json:"email"`
+		}{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+		},
+	})
 }
 
 // Login godoc
-// @Summary Аутентифицирует пользователя и возвращает JWT
-// @Description Логин пользователя и получение JWT токена для аутентификации
-// @Tags users
+// @Summary Вход пользователя
+// @Description Аутентификация пользователя
+// @Tags auth
 // @Accept json
 // @Produce json
-// @Param credentials body models.LoginRequest true "User credentials"
-// @Success 200 {object} map[string]string "token"
-// @Failure 400 {object} map[string]string "Bad Request"
-// @Failure 401 {object} map[string]string "Unauthorized"
+// @Param credentials body LoginRequest true "Учетные данные"
+// @Success 200 {object} AuthResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Router /api/login [post]
 func (uc *UserController) Login(c echo.Context) error {
-	var req models.LoginRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	req := new(LoginRequest)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
-	token, err := uc.UserService.Login(req.Username, req.Password)
+
+	// Ищем пользователя
+	var user models.User
+	if err := uc.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+	}
+
+	// Проверяем пароль
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+	}
+
+	// Генерируем JWT токен
+	token, err := middleware.GenerateToken(user.ID, user.Username, uc.JWTSecret)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
 	}
-	return c.JSON(http.StatusOK, map[string]string{"token": token})
+
+	return c.JSON(http.StatusOK, AuthResponse{
+		Token: token,
+		User: struct {
+			ID       uint   `json:"id"`
+			Username string `json:"username"`
+			Email    string `json:"email"`
+		}{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+		},
+	})
+}
+
+func (uc *UserController) GetProfile(c echo.Context) error {
+	user := c.Get("user").(*jwt.Token)
+	claims := user.Claims.(*middleware.JWTCustomClaims)
+
+	var userProfile models.User
+	if err := uc.DB.First(&userProfile, claims.ID).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+	}
+
+	return c.JSON(http.StatusOK, userProfile)
 }

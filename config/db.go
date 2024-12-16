@@ -1,36 +1,44 @@
 package config
 
 import (
+	"fmt"
 	"log"
-	"os"
 
 	"github.com/NutsBalls/Nexus/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-var DB *gorm.DB
+func InitDB(cfg *Config) (*gorm.DB, error) {
+	// Формирование строки подключения
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		cfg.DBHost,
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBName,
+		cfg.DBPort,
+	)
 
-// InitDB инициализирует подключение к базе данных с использованием DATABASE_URL
-func InitDB() {
-	// Получаем строку подключения из переменной окружения
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		log.Fatal("DATABASE_URL is not set in the environment")
-	}
-
-	// Подключаемся к базе данных с использованием GORM и строки подключения
-	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+	// Подключение к базе данных с подробным логированием
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		log.Printf("Ошибка подключения к базе данных: %v", err)
+		return nil, fmt.Errorf("не удалось подключиться к базе данных: %v", err)
 	}
 
-	// Автоматическая миграция моделей в базе данных
-	err = db.AutoMigrate(&models.User{}, &models.Document{}) // Можно добавить другие модели, если нужно
+	// Автомиграция с минимальным набором моделей
+	err = db.AutoMigrate(
+		&models.User{},
+	)
 	if err != nil {
-		log.Fatalf("failed to migrate models: %v", err)
+		log.Printf("Ошибка миграции базы данных: %v", err)
+		return nil, err
 	}
 
-	// Присваиваем глобальную переменную DB для использования в других частях приложения
-	DB = db
+	log.Println("Успешное подключение к базе данных!")
+	return db, nil
 }
