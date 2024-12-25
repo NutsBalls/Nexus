@@ -5,8 +5,7 @@ import (
 	"strconv"
 
 	"github.com/NutsBalls/Nexus/models"
-	"github.com/NutsBalls/Nexus/utils" // Предполагаем, что JWT Claims определены здесь
-
+	"github.com/NutsBalls/Nexus/utils"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -28,7 +27,7 @@ func (cc *CommentController) AddComment(c echo.Context) error {
 	}
 
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*utils.JWTCustomClaims) // Используйте правильный путь к Claims
+	claims := user.Claims.(*utils.JWTCustomClaims)
 
 	comment := new(models.Comment)
 	if err := c.Bind(comment); err != nil {
@@ -77,7 +76,7 @@ func (cc *CommentController) DeleteComment(c echo.Context) error {
 	}
 
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*utils.JWTCustomClaims) // Используйте правильный путь к Claims
+	claims := user.Claims.(*utils.JWTCustomClaims)
 
 	result := cc.DB.Where("id = ? AND user_id = ?", commentID, claims.ID).Delete(&models.Comment{})
 	if result.Error != nil {

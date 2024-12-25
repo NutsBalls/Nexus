@@ -32,18 +32,10 @@ func DocumentAccessMiddleware(db *gorm.DB) echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			var collaborationExists bool
-			err = db.Raw(`
-                                SELECT EXISTS(
-                                        SELECT 1 FROM collaborations 
-                                        WHERE document_id = ? AND user_id = ?
-                                )`, documentID, claims.ID).Scan(&collaborationExists).Error
+			var share models.Share
+			err = db.Where("document_id = ? AND user_id = ?", documentID, claims.ID).First(&share).Error
 
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Access check failed"})
-			}
-
-			if collaborationExists {
+			if err == nil {
 				return next(c)
 			}
 

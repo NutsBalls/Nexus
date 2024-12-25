@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/NutsBalls/Nexus/config"
 	"github.com/NutsBalls/Nexus/controllers"
@@ -12,132 +14,96 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
-	echoSwagger "github.com/swaggo/echo-swagger"
 )
-
-// @title Nexus
-// @version 1.0
-// @description Описание вашего API.
-// @host localhost:8080
-// @BasePath /
 
 var db *gorm.DB
 
 func main() {
 	e := echo.New()
 
-	// Middleware
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowHeaders: []string{echo.HeaderAuthorization, echo.HeaderContentType},
+	}))
 
-	// Swagger
-	e.GET("/swagger/*", echoSwagger.WrapHandler)
-
-	// Загрузка конфигурации
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Инициализация базы данных
 	db, err := config.InitDB(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Инициализация контроллеров
-	userController := controllers.NewUserController(db, cfg.JWTSecret)
-	documentController := controllers.NewDocumentController(db)
-
-	// Публичные маршруты
-	e.POST("/api/register", userController.Register)
-	e.POST("/api/login", userController.Login)
-
-	// Инициализация новых контроллеров
-	tagController := controllers.NewTagController(db)
-	folderController := controllers.NewFolderController(db)
-	collaborationController := controllers.NewCollaborationController(db)
-
-	// Защищенные маршруты
-	api := e.Group("/api")
-	api.Use(middlewares.JWTMiddleware(cfg.JWTSecret)) // Добавляем middleware для JWT
-
-	// Маршруты для документов
-	api.GET("/documents", documentController.GetDocuments)
-	api.POST("/documents", documentController.CreateDocument)
-	api.GET("/documents/:id", documentController.GetDocument)
-	api.PUT("/documents/:id", documentController.UpdateDocument)
-	api.DELETE("/documents/:id", documentController.DeleteDocument)
-	api.GET("/documents/search", documentController.SearchDocuments)
-	api.POST("/documents/:id/share", documentController.ShareDocument)
-	api.POST("/documents/:id/versions", documentController.CreateVersion)
-	api.GET("/documents/:id/versions", documentController.GetVersions)
-
-	// Маршруты для папок
-	api.POST("/folders", folderController.CreateFolder)
-	api.GET("/folders", folderController.GetFolders)
-	api.PUT("/folders/:id", folderController.UpdateFolder)
-	api.DELETE("/folders/:id", folderController.DeleteFolder)
-
-	// Маршруты для тегов
-	api.POST("/tags", tagController.CreateTag)
-	api.GET("/tags", tagController.GetTags)
-
-	favoriteController := controllers.NewFavoriteController(db)
-	recentController := controllers.NewRecentController(db)
-
-	// Маршруты для избранного
-	api.POST("/documents/:id/favorite", favoriteController.AddToFavorites)
-	api.DELETE("/documents/:id/favorite", favoriteController.RemoveFromFavorites)
-	api.GET("/favorites", favoriteController.GetFavorites)
-
-	// Маршруты для недавних документов
-	api.POST("/documents/:id/recent", recentController.AddToRecent)
-	api.GET("/recent", recentController.GetRecentDocuments)
-
-	// Маршруты для вложений
-	api.POST("/documents/:id/attachments", documentController.UploadAttachment)
-	api.GET("/documents/:id/attachments", documentController.GetAttachments)
+	uploadsDir := filepath.Join(currentDir, "uploads")
+	e.Static("/uploads", uploadsDir)
 
 	exportService := services.NewExportService(db)
 	importService := services.NewImportService(db)
 
-	// Инициализация контроллеров
+	// Используемые контроллеры
+	userController := controllers.NewUserController(db, cfg.JWTSecret)
+	documentController := controllers.NewDocumentController(db)
+	shareController := controllers.NewShareController(db)
 	exportController := controllers.NewExportController(exportService)
 	importController := controllers.NewImportController(importService)
+	folderController := controllers.NewFolderController(db)
 
-	// Экспорт/Импорт маршруты
+	// Аутентификация
+	e.POST("/api/register", userController.Register)
+	e.POST("/api/login", userController.Login)
+
+	// Возможность делиться с другими пользователями
+	shareGroup := e.Group("/api/shares")
+	shareGroup.Use(middlewares.DocumentAccessMiddleware(db))
+	shareGroup.GET("/shared-with-me", shareController.GetSharedWithMe)
+	shareGroup.GET("/shared-by-me", shareController.GetSharedByMe)
+	shareGroup.GET("/:id/access", shareController.CheckDocumentAccess)
+
+	// Защищенные маршруты
+	api := e.Group("/api")
+	api.Use(middlewares.JWTMiddleware(cfg.JWTSecret))
+
+	// documents
+	api.GET("/documents", documentController.GetDocuments)
+	api.GET("/documents/:id", documentController.GetDocument)
+	api.GET("/documents/:id/attachments", documentController.GetAttachments)
+	api.GET("/download/*", documentController.DownloadAttachment)
+	api.GET("/documents/search", documentController.SearchDocuments)
+	api.POST("/documents", documentController.CreateDocument)
+	api.POST("/documents/:id/attachments", documentController.UploadAttachment)
+	api.PUT("/documents/:id", documentController.UpdateDocument)
+	api.DELETE("/attachments/:id", documentController.DeleteAttachment)
+	api.DELETE("/documents/:id", documentController.DeleteDocument)
+
+	api.POST("/documents/:id/share", shareController.ShareDocument)
+	api.GET("/documents/:id/shares", shareController.GetDocumentShares, middlewares.DocumentAccessMiddleware(db))
+	api.DELETE("/shares/:id", shareController.RemoveShare, middlewares.DocumentAccessMiddleware(db))
+
+	// folders
+	api.GET("/folders", folderController.GetFolders)
+	api.GET("/folders/:id/documents", documentController.GetFolderDocuments)
+	api.POST("/folders", folderController.CreateFolder)
+	api.PUT("/folders/:id", folderController.UpdateFolder)
+	api.DELETE("/folders/:id", folderController.DeleteFolder)
+
+	// import/export
 	api.GET("/documents/:id/export", exportController.ExportDocument)
 	api.POST("/documents/import", importController.ImportDocument)
 
-	// Поиск по тегам
-	api.GET("/search/tags", tagController.SearchByTag)
-
-	commentController := controllers.NewCommentController(db)
-	notificationController := controllers.NewNotificationController(db)
-
-	// Маршруты для комментариев
-	api.POST("/documents/:id/comments", commentController.AddComment)
-	api.GET("/documents/:id/comments", commentController.GetComments)
-	api.DELETE("/documents/:id/comments/:commentId", commentController.DeleteComment)
-
-	// Маршруты для уведомлений
-	api.GET("/notifications", notificationController.GetNotifications)
-	api.PUT("/notifications/:id/read", notificationController.MarkAsRead)
-	api.PUT("/notifications/read-all", notificationController.MarkAllAsRead)
-
-	// Добавим middleware для проверки прав доступа к документам
 	documentGroup := api.Group("/documents/:id")
 	documentGroup.Use(middlewares.DocumentAccessMiddleware(db))
-
-	// Защищенные маршруты документов
 	documentGroup.PUT("", documentController.UpdateDocument)
 	documentGroup.DELETE("", documentController.DeleteDocument)
-	documentGroup.POST("/collaborators", collaborationController.AddCollaborator)
-	documentGroup.GET("/collaborators", collaborationController.GetCollaborators)
-	documentGroup.DELETE("/collaborators/:userId", collaborationController.RemoveCollaborator)
 
-	// Запуск сервера
-	e.Logger.Fatal(e.Start(":" + cfg.ServerPort))
+	e.Logger.Fatal(e.Start("0.0.0.0:" + cfg.ServerPort))
+
 }

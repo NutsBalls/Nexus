@@ -1,0 +1,31 @@
+name: mobile_app
+description: "A new Flutter project."
+
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.0.15
+  provider: ^6.1.2
+  universal_html: ^2.0.8
+  cupertino_icons: ^1.0.8
+  file_picker: ^8.1.6
+  url_launcher: ^6.3.1
+  open_file: ^3.0.0
+  path_provider: ^2.1.5
+  http_parser: ^4.0.2
+  intl: ^0.18.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

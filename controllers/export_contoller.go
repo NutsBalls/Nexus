@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	middleware "github.com/NutsBalls/Nexus/middlewares"
 	"github.com/NutsBalls/Nexus/services"
+	"github.com/NutsBalls/Nexus/utils"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 )
@@ -27,7 +27,7 @@ func (ec *ExportController) ExportDocument(c echo.Context) error {
 	}
 
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*middleware.JWTCustomClaims)
+	claims := user.Claims.(*utils.JWTCustomClaims)
 
 	filename, err := ec.exportService.ExportDocumentToJSON(uint(documentID), claims.ID)
 	if err != nil {

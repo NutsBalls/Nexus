@@ -1,4 +1,3 @@
-// services/import_service.go
 package services
 
 import (
@@ -25,7 +24,7 @@ func (is *ImportService) ImportDocumentFromJSON(reader io.Reader, userID uint) (
 		return nil, err
 	}
 
-	document.ID = 0 
+	document.ID = 0
 	document.UserID = userID
 
 	err := is.db.Transaction(func(tx *gorm.DB) error {
@@ -35,7 +34,7 @@ func (is *ImportService) ImportDocumentFromJSON(reader io.Reader, userID uint) (
 
 		// Импортируем теги
 		for _, tag := range document.Tags {
-			tag.ID = 0 
+			tag.ID = 0
 			tag.UserID = userID
 			if err := tx.Create(&tag).Error; err != nil {
 				return err

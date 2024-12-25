@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -17,11 +18,9 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	// Загрузка переменных окружения из .env файла
 	err := godotenv.Load()
 	if err != nil {
-		// Можно не возвращать ошибку, если .env не найден
-		// log.Println("Error loading .env file")
+		log.Println("Error loading .env file")
 	}
 
 	return &Config{
@@ -35,7 +34,6 @@ func LoadConfig() (*Config, error) {
 	}, nil
 }
 
-// Вспомогательная функция для получения переменных окружения
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {

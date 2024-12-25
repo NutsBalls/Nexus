@@ -29,7 +29,6 @@ func (es *ExportService) ExportDocumentToJSON(documentID uint, userID uint) (str
 
 	filename := fmt.Sprintf("exports/document_%d.json", documentID)
 
-	// Создаем директорию если не существует
 	os.MkdirAll("exports", 0755)
 
 	file, err := os.Create(filename)

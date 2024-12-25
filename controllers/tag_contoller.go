@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/NutsBalls/Nexus/models"
+	"github.com/NutsBalls/Nexus/utils"
 
-	middleware "github.com/NutsBalls/Nexus/middlewares"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -26,7 +26,7 @@ func (tc *TagController) CreateTag(c echo.Context) error {
 	}
 
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*middleware.JWTCustomClaims)
+	claims := user.Claims.(*utils.JWTCustomClaims)
 	tag.UserID = claims.ID
 
 	if err := tc.DB.Create(tag).Error; err != nil {
@@ -38,7 +38,7 @@ func (tc *TagController) CreateTag(c echo.Context) error {
 
 func (tc *TagController) GetTags(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*middleware.JWTCustomClaims)
+	claims := user.Claims.(*utils.JWTCustomClaims)
 
 	var tags []models.Tag
 	if err := tc.DB.Where("user_id = ?", claims.ID).Find(&tags).Error; err != nil {
@@ -55,7 +55,7 @@ func (tc *TagController) SearchByTag(c echo.Context) error {
 	}
 
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*middleware.JWTCustomClaims)
+	claims := user.Claims.(*utils.JWTCustomClaims)
 
 	var documents []models.Document
 	if err := tc.DB.Joins("JOIN document_tags ON document_tags.document_id = documents.id").

@@ -8,15 +8,17 @@ import (
 )
 
 type JWTCustomClaims struct {
-	ID    uint   `json:"id"`
-	Email string `json:"email"`
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
 	jwt.StandardClaims
 }
 
-func CreateJWTToken(id uint, email string, secret []byte, expirationTime int64) (string, error) {
+func CreateJWTToken(id uint, username string, email string, secret []byte, expirationTime int64) (string, error) {
 	claims := &JWTCustomClaims{
-		ID:    id,
-		Email: email,
+		ID:       id,
+		Username: username,
+		Email:    email,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime,
 			IssuedAt:  time.Now().Unix(),

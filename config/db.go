@@ -11,7 +11,6 @@ import (
 )
 
 func InitDB(cfg *Config) (*gorm.DB, error) {
-	// Формирование строки подключения
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		cfg.DBHost,
@@ -21,7 +20,6 @@ func InitDB(cfg *Config) (*gorm.DB, error) {
 		cfg.DBPort,
 	)
 
-	// Подключение к базе данных с подробным логированием
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -30,12 +28,18 @@ func InitDB(cfg *Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("не удалось подключиться к базе данных: %v", err)
 	}
 
-	// Автомиграция с минимальным набором моделей
-	err = db.AutoMigrate(
-		&models.User{},
-	)
-	if err != nil {
-		log.Printf("Ошибка миграции базы данных: %v", err)
+	if err := db.AutoMigrate(&models.User{}, &models.Folder{}); err != nil {
+		log.Printf("Ошибка миграции базы данных для User и Folder: %v", err)
+		return nil, err
+	}
+
+	if err := db.AutoMigrate(
+		&models.Document{},
+		&models.Tag{},
+		&models.Version{},
+		&models.Share{},
+	); err != nil {
+		log.Printf("Ошибка миграции базы данных для остальных моделей: %v", err)
 		return nil, err
 	}
 

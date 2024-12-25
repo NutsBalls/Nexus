@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/NutsBalls/Nexus/services"
+	"github.com/NutsBalls/Nexus/utils"
 
-	middleware "github.com/NutsBalls/Nexus/middlewares"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 )
@@ -20,9 +20,8 @@ func NewImportController(importService *services.ImportService) *ImportControlle
 
 func (ic *ImportController) ImportDocument(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*middleware.JWTCustomClaims)
+	claims := user.Claims.(*utils.JWTCustomClaims)
 
-	// Получаем файл из запроса
 	file, err := c.FormFile("document")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})

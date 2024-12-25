@@ -1,0 +1,12 @@
+{
+    "id": 24,
+    "created_at": "2024-12-25T03:49:53.590164+03:00",
+    "updated_at": "2024-12-25T03:49:53.590164+03:00",
+    "deleted_at": "0001-01-01T03:00:00+03:00",
+    "title": "kmkkm",
+    "content": "mkkmkm",
+    "user_id": 12,
+    "folder_id": 9,
+    "tags": [],
+    "is_public": false
+}

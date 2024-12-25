@@ -20,6 +20,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "ApiKeyAuth": []
+                    },
+                    {
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Возвращает список всех документов",
@@ -54,7 +57,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Создает новый документ с переданными данными",
@@ -75,7 +78,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Document"
+                            "$ref": "#/definitions/controllers.CreateDocumentRequest"
                         }
                     }
                 ],
@@ -88,6 +91,15 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -109,6 +121,11 @@ const docTemplate = `{
         },
         "/api/documents/search": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Поиск документов по запросу с учетом прав доступа",
                 "produces": [
                     "application/json"
@@ -161,7 +178,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Возвращает документ по указанному идентификатору",
@@ -200,6 +217,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Обновляет существующий документ",
                 "consumes": [
                     "application/json"
@@ -266,6 +288,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Удаляет документ по указанному идентификатору",
                 "tags": [
                     "documents"
@@ -298,6 +325,11 @@ const docTemplate = `{
         },
         "/api/documents/{id}/attachments": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Возвращает список вложений для указанного документа",
                 "produces": [
                     "application/json"
@@ -346,6 +378,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Загружает вложение для указанного документа",
                 "consumes": [
                     "multipart/form-data"
@@ -403,6 +440,11 @@ const docTemplate = `{
         },
         "/api/documents/{id}/share": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Предоставляет доступ к документу другому пользователю по email",
                 "consumes": [
                     "application/json"
@@ -474,6 +516,11 @@ const docTemplate = `{
         },
         "/api/documents/{id}/versions": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Возвращает список версий для указанного документа",
                 "produces": [
                     "application/json"
@@ -513,6 +560,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Создает новую версию для указанного документа",
                 "consumes": [
                     "application/json"
@@ -569,6 +621,63 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/folders": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Создает новую папку для текущего пользователя.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Folders"
+                ],
+                "summary": "Создать папку",
+                "parameters": [
+                    {
+                        "description": "Данные для создания папки",
+                        "name": "folder",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Folder"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Folder"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create folder",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -707,6 +816,27 @@ const docTemplate = `{
                 }
             }
         },
+        "controllers.CreateDocumentRequest": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "Содержимое документа"
+                },
+                "folder_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "is_public": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Мой документ"
+                }
+            }
+        },
         "controllers.LoginRequest": {
             "type": "object",
             "required": [
@@ -839,41 +969,27 @@ const docTemplate = `{
         },
         "models.Folder": {
             "type": "object",
+            "required": [
+                "name"
+            ],
             "properties": {
-                "children": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Folder"
-                    }
-                },
                 "created_at": {
                     "type": "string"
                 },
                 "deleted_at": {
                     "type": "string"
                 },
-                "documents": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Document"
-                    }
-                },
                 "id": {
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string",
-                    "example": "Личные документы"
-                },
-                "parent_id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
                 },
                 "user_id": {
-                    "type": "integer",
-                    "example": 1
+                    "type": "integer"
                 }
             }
         },
@@ -973,6 +1089,13 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

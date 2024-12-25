@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/NutsBalls/Nexus/models"
-	"github.com/NutsBalls/Nexus/utils" // Импортируем JWTCustomClaims
+	"github.com/NutsBalls/Nexus/utils"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
