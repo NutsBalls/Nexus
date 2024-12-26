@@ -38,6 +38,7 @@ func InitDB(cfg *Config) (*gorm.DB, error) {
 		&models.Tag{},
 		&models.Version{},
 		&models.Share{},
+		&models.Attachment{},
 	); err != nil {
 		log.Printf("Ошибка миграции базы данных для остальных моделей: %v", err)
 		return nil, err

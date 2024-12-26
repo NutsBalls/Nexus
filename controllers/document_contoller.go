@@ -2,12 +2,15 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/NutsBalls/Nexus/models"
 	"github.com/NutsBalls/Nexus/utils"
@@ -227,43 +230,66 @@ func (dc *DocumentController) UploadAttachment(c echo.Context) error {
 
 	file, err := c.FormFile("file")
 	if err != nil {
+		log.Printf("Error getting form file: %v", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
 	}
 
-	if err := os.MkdirAll("uploads", 0755); err != nil {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Printf("Error getting current directory: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server error"})
+	}
+
+	uploadsDir := filepath.Join(currentDir, "uploads")
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		log.Printf("Error creating uploads directory: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create uploads directory"})
 	}
 
-	filePath := filepath.Join("uploads", file.Filename)
+	fileExt := filepath.Ext(file.Filename)
+	safeFileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), fileExt)
+	filePath := filepath.Join(uploadsDir, safeFileName)
+
+	log.Printf("Trying to save file to: %s", filePath)
 
 	src, err := file.Open()
 	if err != nil {
+		log.Printf("Error opening source file: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to open uploaded file"})
 	}
 	defer src.Close()
 
 	dst, err := os.Create(filePath)
 	if err != nil {
+		log.Printf("Error creating destination file: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create destination file"})
 	}
 	defer dst.Close()
 
 	if _, err = io.Copy(dst, src); err != nil {
+		log.Printf("Error copying file: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save file"})
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Printf("File was not created at: %s", filePath)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "File was not created"})
 	}
 
 	attachment := models.Attachment{
 		DocumentID: uint(documentID),
 		Filename:   file.Filename,
-		Path:       file.Filename,
+		Path:       safeFileName,
 		Size:       file.Size,
 	}
 
 	if err := dc.DB.Create(&attachment).Error; err != nil {
+		log.Printf("Error saving to database: %v", err)
 		os.Remove(filePath)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save attachment info"})
 	}
 
+	log.Printf("Successfully saved attachment - ID: %d, Filename: %s, Path: %s", attachment.ID, attachment.Filename, attachment.Path)
 	return c.JSON(http.StatusOK, attachment)
 }
 
@@ -279,24 +305,36 @@ func (dc *DocumentController) GetAttachments(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch attachments"})
 	}
 
+	for _, att := range attachments {
+		log.Printf("Attachment in DB - ID: %d, Path: %s, Filename: %s", att.ID, att.Path, att.Filename)
+	}
+
 	return c.JSON(http.StatusOK, attachments)
 }
 
 func (dc *DocumentController) DownloadAttachment(c echo.Context) error {
-	path := c.Param("*")
-	if path == "" {
+	encodedPath := c.Param("*")
+	if encodedPath == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid path"})
 	}
 
-	filePath := filepath.Join("uploads", path)
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
+	decodedPath, err := url.QueryUnescape(encodedPath)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid path encoding"})
 	}
 
+	log.Printf("Encoded path: %s", encodedPath)
+	log.Printf("Decoded path: %s", decodedPath)
+
 	var attachment models.Attachment
-	if err := dc.DB.Where("path = ?", path).First(&attachment).Error; err != nil {
-		return c.File(filePath)
+	if err := dc.DB.Where("path = ?", decodedPath).First(&attachment).Error; err != nil {
+		log.Printf("Failed to find attachment: %v", err)
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Attachment not found"})
+	}
+
+	filePath := filepath.Join("uploads", decodedPath)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
 	}
 
 	return c.Attachment(filePath, attachment.Filename)

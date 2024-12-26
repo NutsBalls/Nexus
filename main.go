@@ -25,6 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -43,67 +44,83 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	uploadsDir := filepath.Join(currentDir, "uploads")
-	e.Static("/uploads", uploadsDir)
+	userController := controllers.NewUserController(db, cfg.JWTSecret)
+	documentController := controllers.NewDocumentController(db)
+	shareController := controllers.NewShareController(db)
+
+	e.POST("/api/register", userController.Register)
+	e.POST("/api/login", userController.Login)
+
+	tagController := controllers.NewTagController(db)
+	folderController := controllers.NewFolderController(db)
+
+	api := e.Group("/api")
+	api.Use(middlewares.JWTMiddleware(cfg.JWTSecret))
+
+	shareGroup := api.Group("/shares")
+
+	api.GET("/shares/shared-with-me", shareController.GetSharedWithMe)
+	api.GET("/shares/shared-by-me", shareController.GetSharedByMe)
+	shareGroup.GET("/:id/access", shareController.CheckDocumentAccess, middlewares.DocumentAccessMiddleware(db))
+
+	api.POST("/documents/:id/share", shareController.ShareDocument, middlewares.DocumentAccessMiddleware(db))
+	api.GET("/documents/:id/shares", shareController.GetDocumentShares, middlewares.DocumentAccessMiddleware(db))
+	api.DELETE("/shares/:id", shareController.RemoveShare, middlewares.DocumentAccessMiddleware(db))
+
+	api.GET("/documents", documentController.GetDocuments)
+	api.POST("/documents", documentController.CreateDocument)
+	api.GET("/documents/:id", documentController.GetDocument)
+	api.PUT("/documents/:id", documentController.UpdateDocument)
+	api.DELETE("/attachments/:id", documentController.DeleteAttachment)
+	api.DELETE("/documents/:id", documentController.DeleteDocument)
+	api.GET("/documents/search", documentController.SearchDocuments)
+	api.POST("/documents/:id/versions", documentController.CreateVersion)
+	api.GET("/documents/:id/versions", documentController.GetVersions)
+	api.POST("/documents/:id/attachments", documentController.UploadAttachment)
+	api.GET("/documents/:id/attachments", documentController.GetAttachments)
+	api.GET("/download/*", documentController.DownloadAttachment)
+
+	api.POST("/folders", folderController.CreateFolder)
+	api.GET("/folders", folderController.GetFolders)
+	api.GET("/folders/:id/documents", documentController.GetFolderDocuments)
+	api.PUT("/folders/:id", folderController.UpdateFolder)
+	api.DELETE("/folders/:id", folderController.DeleteFolder)
+
+	api.POST("/tags", tagController.CreateTag)
+	api.GET("/tags", tagController.GetTags)
+
+	api.POST("/documents/:id/attachments", documentController.UploadAttachment)
+	api.GET("/documents/:id/attachments", documentController.GetAttachments)
 
 	exportService := services.NewExportService(db)
 	importService := services.NewImportService(db)
 
-	// Используемые контроллеры
-	userController := controllers.NewUserController(db, cfg.JWTSecret)
-	documentController := controllers.NewDocumentController(db)
-	shareController := controllers.NewShareController(db)
 	exportController := controllers.NewExportController(exportService)
 	importController := controllers.NewImportController(importService)
-	folderController := controllers.NewFolderController(db)
 
-	// Аутентификация
-	e.POST("/api/register", userController.Register)
-	e.POST("/api/login", userController.Login)
-
-	// Возможность делиться с другими пользователями
-	shareGroup := e.Group("/api/shares")
-	shareGroup.Use(middlewares.DocumentAccessMiddleware(db))
-	shareGroup.GET("/shared-with-me", shareController.GetSharedWithMe)
-	shareGroup.GET("/shared-by-me", shareController.GetSharedByMe)
-	shareGroup.GET("/:id/access", shareController.CheckDocumentAccess)
-
-	// Защищенные маршруты
-	api := e.Group("/api")
-	api.Use(middlewares.JWTMiddleware(cfg.JWTSecret))
-
-	// documents
-	api.GET("/documents", documentController.GetDocuments)
-	api.GET("/documents/:id", documentController.GetDocument)
-	api.GET("/documents/:id/attachments", documentController.GetAttachments)
-	api.GET("/download/*", documentController.DownloadAttachment)
-	api.GET("/documents/search", documentController.SearchDocuments)
-	api.POST("/documents", documentController.CreateDocument)
-	api.POST("/documents/:id/attachments", documentController.UploadAttachment)
-	api.PUT("/documents/:id", documentController.UpdateDocument)
-	api.DELETE("/attachments/:id", documentController.DeleteAttachment)
-	api.DELETE("/documents/:id", documentController.DeleteDocument)
-
-	api.POST("/documents/:id/share", shareController.ShareDocument)
-	api.GET("/documents/:id/shares", shareController.GetDocumentShares, middlewares.DocumentAccessMiddleware(db))
-	api.DELETE("/shares/:id", shareController.RemoveShare, middlewares.DocumentAccessMiddleware(db))
-
-	// folders
-	api.GET("/folders", folderController.GetFolders)
-	api.GET("/folders/:id/documents", documentController.GetFolderDocuments)
-	api.POST("/folders", folderController.CreateFolder)
-	api.PUT("/folders/:id", folderController.UpdateFolder)
-	api.DELETE("/folders/:id", folderController.DeleteFolder)
-
-	// import/export
 	api.GET("/documents/:id/export", exportController.ExportDocument)
 	api.POST("/documents/import", importController.ImportDocument)
 
+	api.GET("/search/tags", tagController.SearchByTag)
+
+	commentController := controllers.NewCommentController(db)
+	notificationController := controllers.NewNotificationController(db)
+
+	api.POST("/documents/:id/comments", commentController.AddComment)
+	api.GET("/documents/:id/comments", commentController.GetComments)
+	api.DELETE("/documents/:id/comments/:commentId", commentController.DeleteComment)
+
+	api.GET("/notifications", notificationController.GetNotifications)
+	api.PUT("/notifications/:id/read", notificationController.MarkAsRead)
+	api.PUT("/notifications/read-all", notificationController.MarkAllAsRead)
+
 	documentGroup := api.Group("/documents/:id")
 	documentGroup.Use(middlewares.DocumentAccessMiddleware(db))
+
 	documentGroup.PUT("", documentController.UpdateDocument)
 	documentGroup.DELETE("", documentController.DeleteDocument)
 
+	uploadsDir := filepath.Join(currentDir, "uploads")
+	e.Static("/uploads", uploadsDir)
 	e.Logger.Fatal(e.Start("0.0.0.0:" + cfg.ServerPort))
-
 }

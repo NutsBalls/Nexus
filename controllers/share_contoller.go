@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/NutsBalls/Nexus/models"
@@ -72,12 +74,20 @@ func (sc *ShareController) ShareDocument(c echo.Context) error {
 		CreatedByID: claims.ID,
 	}
 
-	if err := sc.DB.Where("document_id = ? AND user_id = ?",
-		document.ID, targetUser.ID).Assign(share).FirstOrCreate(&share).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to share document"})
+	if err := sc.DB.Where("document_id = ? AND user_id = ?", document.ID, targetUser.ID).First(&models.Share{}).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if createErr := sc.DB.Create(&share).Error; createErr != nil {
+				log.Printf("Ошибка при создании share: %v", createErr)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to share document"})
+			}
+			return c.JSON(http.StatusOK, share)
+		} else {
+			log.Printf("Ошибка при поиске share: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to check existing share"})
+		}
+	} else {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Share already exists for this user and document"})
 	}
-
-	return c.JSON(http.StatusOK, share)
 }
 
 func (sc *ShareController) GetDocumentShares(c echo.Context) error {
@@ -119,11 +129,18 @@ func (sc *ShareController) RemoveShare(c echo.Context) error {
 }
 
 func (sc *ShareController) GetSharedWithMe(c echo.Context) error {
-	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*utils.JWTCustomClaims)
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok || userToken == nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	claims, ok := userToken.Claims.(*utils.JWTCustomClaims)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token claims"})
+	}
 
+	userID := claims.ID
 	var shares []models.Share
-	if err := sc.DB.Preload("Document").Where("user_id = ?", claims.ID).Find(&shares).Error; err != nil {
+	if err := sc.DB.Preload("Document").Where("user_id = ?", userID).Find(&shares).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch shared documents"})
 	}
 
@@ -136,11 +153,17 @@ func (sc *ShareController) GetSharedWithMe(c echo.Context) error {
 }
 
 func (sc *ShareController) GetSharedByMe(c echo.Context) error {
-	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*utils.JWTCustomClaims)
+	userToken, ok := c.Get("user").(*jwt.Token)
+	if !ok || userToken == nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+	claims, ok := userToken.Claims.(*utils.JWTCustomClaims)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token claims"})
+	}
 
 	var shares []models.Share
-	if err := sc.DB.Preload("Document").Preload("User").Where("document.user_id = ?", claims.ID).Joins("JOIN documents ON shares.document_id = documents.id").Find(&shares).Error; err != nil {
+	if err := sc.DB.Preload("Document").Preload("User").Where("created_by_id = ?", claims.ID).Find(&shares).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch shared documents"})
 	}
 

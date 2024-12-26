@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../screens/document_detail_screen.dart';
 
 class SharedWithMeScreen extends StatefulWidget {
   final String token;
@@ -57,13 +58,14 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                       title: Text(document['title'] ?? 'Untitled'),
                       subtitle: Text('Shared by: ${document['user_id']}'),
                       onTap: () {
-                        Navigator.pushNamed(
+                        Navigator.push(
                           context,
-                          '/document-detail',
-                          arguments: {
-                            'token': widget.token,
-                            'documentId': document['id'],
-                          },
+                          MaterialPageRoute(
+                            builder: (context) => DocumentDetailScreen(
+                              token: widget.token,
+                              id: document['id'],
+                            ),
+                          ),
                         );
                       },
                     );

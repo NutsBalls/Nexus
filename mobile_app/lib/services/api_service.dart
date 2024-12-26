@@ -5,7 +5,7 @@ import 'package:http_parser/http_parser.dart';
 import 'download_helper.dart' if (dart.library.html) 'download_helper_web.dart';
 
 class ApiService {
-  final String baseUrl = "http://localhost:8080/api";
+  final String baseUrl = "http://backend:8080/api";
 
   Future<dynamic> post(String endpoint, Map<String, dynamic> data,
       [String? token]) async {

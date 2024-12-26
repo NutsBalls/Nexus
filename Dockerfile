@@ -1,27 +1,35 @@
-
+# Этап сборки
 FROM golang:1.23 AS builder
+
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-
+RUN mkdir -p /app/uploads && chmod 777 /app/uploads
+# Копируем go.mod и go.sum для загрузки зависимостей
 COPY go.mod go.sum ./
+
+# Загружаем зависимости
 RUN go mod download
 
-
+# Копируем остальные файлы проекта
 COPY . .
 
+# Собираем приложение
+RUN go build -o main .
 
-RUN go run main.go
-
-
+# Этап создания минимального контейнера
 FROM debian:bullseye-slim
-WORKDIR /root/
 
+FROM frolvlad/alpine-glibc:alpine-3.18
 
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем приложение
 COPY --from=builder /app/main .
 
+# Устанавливаем порт
+EXPOSE 8080
 
-COPY --from=builder /app/config /config
-
-
+# Устанавливаем команду по умолчанию
 CMD ["./main"]
-

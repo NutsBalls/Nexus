@@ -1,34 +1,41 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  db:
-    image: postgres:13
-    container_name: postgres-db
-    environment:
-      POSTGRES_USER: yourusername        # Замените на ваш PostgreSQL пользователь
-      POSTGRES_PASSWORD: yourpassword    # Замените на ваш PostgreSQL пароль
-      POSTGRES_DB: craftdb               # Замените на ваше название БД
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./data:/var/lib/postgresql/data  # Для хранения данных PostgreSQL
-    networks:
-      - backend
-
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: craft-backend
+    container_name: backend
     ports:
-      - "8080:8080"                      # Порт для вашего Go API
+      - "${APP_PORT}:${APP_PORT}" # Прокидываем порт из .env
     env_file:
       - .env
     depends_on:
       - db
-    networks:
+    volumes:
+      - ./uploads:/app/uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: mobile_app/Dockerfile
+    container_name: frontend
+    ports:
+      - "8000:80" # Порт для фронтенда остается фиксированным
+    depends_on:
       - backend
 
-networks:
-  backend:
-    driver: bridge
+  db:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT}:5432" # Прокидываем порт для базы из .env
+
+volumes:
+  postgres_data:

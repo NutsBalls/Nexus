@@ -121,9 +121,21 @@ func (fc *FolderController) DeleteFolder(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied"})
 	}
 
-	if err := fc.DB.Unscoped().Delete(&folder).Error; err != nil {
+	tx := fc.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("Transaction start error: %v", tx.Error)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+	}
+
+	if err := tx.Unscoped().Delete(&folder).Error; err != nil {
+		tx.Rollback()
 		log.Printf("Error deleting folder: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete folder"})
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Transaction commit error: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 	}
 
 	log.Printf("Successfully deleted folder with ID: %s", folderID)
